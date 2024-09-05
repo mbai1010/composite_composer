@@ -568,7 +568,6 @@ impl BuildState for DefaultBuilder {
         kern_output: &String,
         constructor_input: &String,
         s: &SystemState,
-        stack_size: Option<&String>,
     ) -> Result<(), String> {
         let cmd = kern_gen_make_cmd(&constructor_input, &kern_output, &s);
         println!(
