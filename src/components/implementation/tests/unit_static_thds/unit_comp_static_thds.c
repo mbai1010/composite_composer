@@ -26,8 +26,8 @@ int do_continue = 1;
 int test_failed = 0;
 int test_passed[NUM_OF_STEPS] = {0, 0, 0};
 
-// Function pointer array for static threads
-static void (*static_thd_fn[MAX_NUM_STATIC_THD_COMP])(void);
+// Array to store the idx of the static threads
+unsigned int static_thread_idx[MAX_NUM_STATIC_THD_COMP] = {0};
 
 static void static_thread_hi(void);
 static void static_thread_lo(void);
@@ -66,12 +66,10 @@ cos_init(void)
 			name_str = args_get_from("name", &curr_thd);
 			assert(name_str != NULL);
 			
-			// Decrement idx to match the array index
-			--idx;
 			if(strcmp(name_str, "name_static_hi") == 0) {
-				static_thd_fn[idx] = static_thread_hi;
+				static_thread_idx[STATIC_HI_STEP] = idx;
 			} else if(strcmp(name_str, "name_static_lo") == 0) {
-				static_thd_fn[idx] = static_thread_lo;
+				static_thread_idx[STATIC_LO_STEP] = idx;
 			}
 		}
 	}
@@ -145,11 +143,15 @@ static_thread_lo(void)
 }
 
 int
-cos_thd_entry_static(u32_t idx)
+cos_thd_entry_static(unsigned int idx)
 {
 	PRINTLOG(PRINT_DEBUG, "Component %ld: Static thread idx %d\n", cos_compid(), idx);
 	// Increment idx to match the thread index
-	static_thd_fn[--idx]();
+	if (idx == static_thread_idx[STATIC_HI_STEP]) {
+		static_thread_hi();
+	} else if (idx == static_thread_idx[STATIC_LO_STEP]) {
+		static_thread_lo();
+	}
 
 	// Should never reach here
 	assert(0);
