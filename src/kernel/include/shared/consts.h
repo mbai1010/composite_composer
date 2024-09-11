@@ -33,6 +33,12 @@
 #define MAX_SERVICE_DEPTH 31
 #define MAX_NUM_THREADS (25 * NUM_CPU)
 
+/* TODO: Automatically define via composer */
+/* Maximum number of static threads per component */
+#ifndef MAX_NUM_STATIC_THD_COMP 
+#define MAX_NUM_STATIC_THD_COMP 2
+#endif
+
 /*
  * A single thread's stack size is 2^17 = 128kb by default
  */

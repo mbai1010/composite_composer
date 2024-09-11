@@ -47,6 +47,9 @@
 static unsigned long init_schedule_off = 0;
 static compid_t init_schedule[MAX_NUM_COMPS] = { 0 };
 
+/* Static threads for the components */
+struct slm_thd *static_thds_arr[MAX_NUM_COMPS][MAX_NUM_STATIC_THD_COMP] = { 0 };
+
 /*
  * Coordinating the initialization of components requires tracking the
  * initialization state, and barriers across cores.
@@ -66,6 +69,82 @@ struct schedinit_status {
 };
 
 static struct schedinit_status initialization_state[MAX_NUM_COMPS] = { 0 };
+
+static void
+create_static_thds(unsigned int coreid)
+{	
+	// Read from initargs.c
+	struct initargs static_thds, curr_thd, params, clients, curr_client;
+	struct initargs_iter i;
+	int ret, cont, cont2;
+
+	ret = args_get_entry("virt_resources/sched_init", &static_thds);
+	if(ret == 0) {
+		for( cont = args_iter(&static_thds, &i, &curr_thd) ; cont ; cont = args_iter_next(&i, &curr_thd) ) {
+			thdclosure_index_t idx;
+			compid_t compid;
+			struct slm_thd *t;
+			sched_param_t param[4] = { 0 };
+			char *id_str, *core_id_str, *comp_id_str, *prio_str, *period_us_str, *budget_us_str = NULL;
+			int keylen, cnt = 0;
+
+			// Get the thread idx
+			id_str = args_get_from("id", &curr_thd);
+			assert(id_str != NULL && atoi(id_str) > 0);
+			idx = atoi(id_str);
+
+			// Get the parameters
+			ret = args_get_entry_from("params", &curr_thd, &params);
+			assert(!ret);
+
+			// Check if the thread is for the current core
+			core_id_str = args_get_from("core", &params);
+			assert(core_id_str != NULL && atoi(core_id_str) >= 0);
+			if ((unsigned int)atoi(core_id_str) != coreid) continue;			
+			
+			prio_str = args_get_from("priority", &params);
+			assert(prio_str != NULL);
+			param[cnt++] = sched_param_pack(SCHEDP_PRIO, atoi(prio_str));
+
+			period_us_str = args_get_from("period_us", &params);
+			if (period_us_str != NULL) {
+				param[cnt++] = sched_param_pack(SCHEDP_WINDOW, atoi(period_us_str));
+			}
+
+			budget_us_str = args_get_from("budget_us", &params);
+			if (budget_us_str != NULL) {
+				param[cnt++] = sched_param_pack(SCHEDP_BUDGET, atoi(budget_us_str));
+			}
+			param[cnt] = 0;
+			
+			ret = args_get_entry_from("clients", &curr_thd, &clients);
+			assert(!ret);
+			// There must be only one client
+			assert(args_len(&clients) == 1);
+			ret = args_get_entry_from("client", &clients, &curr_client);
+			assert(!ret);
+			// Get the component id
+			comp_id_str = args_get_from("compid", &curr_client);
+			assert(comp_id_str != NULL && atoi(comp_id_str) > 0);
+			compid = atoi(comp_id_str);
+
+			// idx values starts from COS_THD_INIT_REGION_SIZE
+			// idx decremented by 1 in cos_component.c
+			idx = idx + COS_THD_INIT_REGION_SIZE;
+			assert(idx > COS_THD_INIT_REGION_SIZE);
+
+			// Create the thread
+			extern struct slm_thd *thd_alloc_in_static(compid_t id, thdclosure_index_t idx, sched_param_t *parameters);
+			t = thd_alloc_in_static(compid, idx, param);
+			assert(t);
+
+			// Add the thread to the static_thds array
+			// to wake up the thread when the client triggers the scheduler
+			idx = atoi(id_str);
+			static_thds_arr[compid][--idx] = t;	
+		}
+	}	
+}
 
 static void
 component_initialize_next(compid_t cid)
@@ -225,6 +304,9 @@ slm_comp_init_loop(void)
 	unsigned long init_schedule_current = 0, i;
 	struct slm_thd *current;
 
+	/* Allocate static threads for current core */
+	create_static_thds(cos_coreid());
+
 	if (cos_coreid() == 0) printc("Scheduler %ld: Running initialization thread.\n", cos_compid());
 	/* If there are more components to initialize */
 	while (init_schedule_current != ps_load(&init_schedule_off)) {
@@ -269,7 +351,7 @@ slm_comp_init_loop(void)
 	 */
 	slm_cs_enter(slm_thd_special(), SLM_CS_NONE);
 	for (i = 0; i < ps_load(&init_schedule_off); i++) {
-		compid_t client = init_schedule[i];
+		 compid_t client = init_schedule[i];
 		struct slm_thd *t;
 
 		t = initialization_state[client].initialization_thds[cos_coreid()];
