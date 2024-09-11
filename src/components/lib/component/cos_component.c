@@ -226,6 +226,8 @@ cos_thd_entry_exec(u32_t idx)
 	__thd_init_data[idx].data = NULL;
 	__thd_init_data[idx].fn   = NULL;
 
+	/* It is hard to trace the error if fn is NULL */
+	assert(fn != NULL);
 	(fn)(data);
 }
 

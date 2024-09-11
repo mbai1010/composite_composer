@@ -141,6 +141,7 @@ create_static_thds(unsigned int coreid)
 			// Add the thread to the static_thds array
 			// to wake up the thread when the client triggers the scheduler
 			idx = atoi(id_str);
+			assert(idx <= MAX_NUM_STATIC_THD_COMP);
 			static_thds_arr[compid][--idx] = t;	
 		}
 	}	

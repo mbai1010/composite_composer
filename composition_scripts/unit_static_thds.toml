@@ -18,12 +18,14 @@ constructor = "booter"
 [[components]]
 name = "sched"
 img  = "sched.pfprr_quantum_static"
+constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "4"}]
 deps = [{srv = "capmgr", interface = "init"}, {srv = "capmgr", interface = "capmgr"}, {srv = "capmgr", interface = "memmgr"}]
 implements = [{interface = "sched"}, {interface = "init"}]
 constructor = "booter"
 
 [[components]]
 name = "clientcomp"
+constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "4"}]
 img  = "tests.unit_static_thds"
 deps = [{srv = "sched", interface = "init"}, {srv = "sched", interface = "sched"}, {srv = "capmgr", interface = "capmgr_create"}]
 constructor = "booter"
