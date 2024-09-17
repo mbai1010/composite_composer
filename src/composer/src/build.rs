@@ -321,7 +321,7 @@ fn comp_gen_make_cmd(
 
 fn kern_gen_make_cmd(input_constructor: &String, kern_output: &String, _s: &SystemState) -> String {
     format!(
-        r#"make -C src KERNEL_OUTPUT="{}" CONSTRUCTOR_COMP="{}" plat"#,
+        r#"make -d -C src KERNEL_OUTPUT="{}" CONSTRUCTOR_COMP="{}" plat"#,
         kern_output, input_constructor
     )
 }
@@ -401,6 +401,7 @@ impl BuildState for DefaultBuilder {
         header_file_path: &String,
         id: &ComponentId,
         s: &SystemState,
+        stack_size: Option<&String>,
     ) -> Result<(), String> {
         let c = component(&s, id);
 
@@ -412,12 +413,18 @@ impl BuildState for DefaultBuilder {
             String::from("#ifndef COMPONENT_CONSTANTS_H\n#define COMPONENT_CONSTANTS_H\n\n");
 
         for constant in &c.constants {
-            header_content.push_str(&format!(
-                "#define {} {}\n",
-                constant.variable, constant.value
-            ));
+            if constant.variable == "max_stack_sz_byte_order" {
+                header_content.push_str(&format!(
+                    "#define MAX_STACK_SZ_BYTE_ORDER {}\n",
+                    stack_size.unwrap_or(&"0".to_string())
+                )); 
+            } else {
+                header_content.push_str(&format!(
+                    "#define {} {}\n",
+                    constant.variable, constant.value
+                ));
+            }
         }
-
         header_content.push_str("\n#endif /* COMPONENT_CONSTANTS_H */\n");
 
         emit_file(&header_file_path, header_content.as_bytes()).unwrap();
@@ -425,18 +432,18 @@ impl BuildState for DefaultBuilder {
         Ok(())
     }
 
-    fn comp_build(&self, id: &ComponentId, state: &SystemState) -> Result<String, String> {
+    fn comp_build(&self, id: &ComponentId, state: &SystemState, stack_size: Option<&String>) -> Result<String, String> {
         let comp_dir = self.comp_dir_path(&id, &state)?;
         compdir_check_build(&comp_dir)?;
         let p = state.get_param_id(&id);
-        let output_path = self.comp_obj_path(&id, &state)?;
+        let output_path: String = self.comp_obj_path(&id, &state)?;
 
         let comp_log = self.comp_file_path(&id, &"compilation.log".to_string(), &state)?;
 
         let header_file_path =
             self.comp_file_path(&id, &"component_constants.h".to_string(), &state)?;
 
-        self.comp_const_header_file(&header_file_path, &id, &state)?;
+        self.comp_const_header_file(&header_file_path, &id, &state, stack_size)?;
 
         //rebuild process starts
         if self.rebuildflag {
@@ -452,8 +459,8 @@ impl BuildState for DefaultBuilder {
             let (out1, err1) = exec_pipeline(vec![dep_cmd.clone()]);
 
             let rebuild_cmd = format!(
-                r#"make -C src REBUILD_DIRS="{}" COMP_CONST_H="-include {}" component_rebuild"#,
-                out1, header_file_path
+                r#"make -C src REBUILD_DIRS="{}" COMP_CONST_H="-include {}" STACK_SIZE="{}" component_rebuild"#,
+                out1, header_file_path,stack_size.unwrap()
             );
             let (out2, err2) = exec_pipeline(vec![rebuild_cmd.clone()]);
 

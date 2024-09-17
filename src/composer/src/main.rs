@@ -20,6 +20,7 @@ mod symbols;
 mod syshelpers;
 mod tot_order;
 mod virt_resources;
+mod graph;
 
 use address_assignment::AddressAssignmentx86_64;
 use build::DefaultBuilder;
@@ -34,6 +35,7 @@ use std::env;
 use std::process::Command;
 use tot_order::CompTotOrd;
 use virt_resources::VirtResAnalysis;
+use graph::Graph;
 
 pub fn exec() -> Result<(), String> {
     let mut args = env::args();
@@ -77,14 +79,10 @@ pub fn exec() -> Result<(), String> {
         .rev()
         .collect();
     for c_id in reverse_ids.iter() {
-        
-        sys.add_params_iter(&c_id, Parameters::transition_iter(c_id, &sys, &mut build)?);
-        let obj = ElfObject::transition_iter(c_id, &sys, &mut build)?;
-        sys.add_objs_iter(&c_id, ElfObject::transition_iter(c_id, &sys, &mut build)?);
-        sys.add_invs_iter(&c_id, Invocations::transition_iter(c_id, &sys, &mut build)?);
-        println!("path:{}", obj.get_path());
+        sys.add_params_iter(&c_id, Parameters::transition_iter(c_id, &sys, &mut build, None)?);
+        let obj = ElfObject::transition_iter(c_id, &sys, &mut build, None)?;
         let output = Command::new("python3")
-        .arg("/home/minghwu/work/minghwu/composite/pyelftool_parser/src/analyzer.py")
+        .arg("pyelftool_parser/src/analyzer.py")
         .arg(obj.get_path())
         .output()
         .expect("Failed to execute script");
@@ -95,6 +93,10 @@ pub fn exec() -> Result<(), String> {
             let stderr = String::from_utf8_lossy(&output.stderr);
             eprintln!("Script error: {}", stderr);
         }
+        let stack_size =  String::from_utf8_lossy(&output.stdout).replace("\n", "").to_string();
+        sys.add_objs_iter(&c_id, ElfObject::transition_iter(c_id, &sys, &mut build, Some(&stack_size))?);
+        sys.add_invs_iter(&c_id, Invocations::transition_iter(c_id, &sys, &mut build, None)?);
+        
     }
     
     sys.add_constructor(Constructor::transition(&sys, &mut build)?);
