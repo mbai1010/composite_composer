@@ -78,7 +78,7 @@ create_static_thds(unsigned int coreid)
 	struct initargs_iter i;
 	int ret, cont, cont2;
 
-	ret = args_get_entry("virt_resources/sched_init", &static_thds);
+	ret = args_get_entry("sys_virt_resources/sched", &static_thds);
 	if(ret == 0) {
 		for( cont = args_iter(&static_thds, &i, &curr_thd) ; cont ; cont = args_iter_next(&i, &curr_thd) ) {
 			thdclosure_index_t idx;
@@ -117,14 +117,14 @@ create_static_thds(unsigned int coreid)
 			}
 			param[cnt] = 0;
 			
-			ret = args_get_entry_from("clients", &curr_thd, &clients);
-			assert(!ret);
+			//ret = args_get_entry_from("clients", &curr_thd, &clients);
+			//assert(!ret);
 			// There must be only one client
-			assert(args_len(&clients) == 1);
-			ret = args_get_entry_from("client", &clients, &curr_client);
+			//assert(args_len(&clients) == 1);
+			ret = args_get_entry_from("client", &curr_thd, &curr_client);
 			assert(!ret);
 			// Get the component id
-			comp_id_str = args_get_from("compid", &curr_client);
+			comp_id_str = args_get_from("comp_id", &curr_client);
 			assert(comp_id_str != NULL && atoi(comp_id_str) > 0);
 			compid = atoi(comp_id_str);
 
@@ -142,6 +142,7 @@ create_static_thds(unsigned int coreid)
 			// to wake up the thread when the client triggers the scheduler
 			idx = atoi(id_str);
 			assert(idx <= MAX_NUM_STATIC_THD_COMP);
+			printc("\tScheduler %ld: Creating static thread %ld for component %ld\n", cos_compid(), idx, compid);
 			static_thds_arr[compid][--idx] = t;	
 		}
 	}	

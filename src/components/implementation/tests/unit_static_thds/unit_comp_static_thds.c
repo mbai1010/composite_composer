@@ -51,7 +51,7 @@ cos_init(void)
 	struct initargs_iter i;
 	int ret, cont, cont2;
 
-	ret = args_get_entry("virt_resources/sched_init", &static_thds);
+	ret = args_get_entry("comp_virt_resources/sched", &static_thds);
 	if(ret == 0) {
 		for( cont = args_iter(&static_thds, &i, &curr_thd) ; cont ; cont = args_iter_next(&i, &curr_thd) ) {
 			thdclosure_index_t idx;
@@ -66,6 +66,7 @@ cos_init(void)
 			name_str = args_get_from("name", &curr_thd);
 			assert(name_str != NULL);
 			
+			PRINTLOG(PRINT_DEBUG, "Static thread idx %d, name %s\n", idx, name_str);
 			if(strcmp(name_str, "name_static_hi") == 0) {
 				static_thread_idx[STATIC_HI_STEP] = idx;
 			} else if(strcmp(name_str, "name_static_lo") == 0) {
@@ -73,6 +74,8 @@ cos_init(void)
 			}
 		}
 	}
+
+	PRINTLOG(PRINT_DEBUG, "COS_INIT done\n");
 
 	return 0;
 }
@@ -88,11 +91,12 @@ main(void)
 
 	// Wake up the static threads
 	compid_t compid = cos_compid();
-	ret = sched_thd_wakeup_static(compid, 1); // High priority static thread
+	ret = sched_thd_wakeup_static(compid, static_thread_idx[STATIC_HI_STEP]); // High priority static thread
 	assert(ret == 0);
-	ret = sched_thd_wakeup_static(compid, 2); // Low priority static thread
+	ret = sched_thd_wakeup_static(compid, static_thread_idx[STATIC_LO_STEP]); // Low priority static thread
 	assert(ret == 0);
 
+	PRINTLOG(PRINT_DEBUG, "Waiting for threads to complete\n");
 	while (do_continue && !test_failed) {
 		cycles_t wakeup;
 

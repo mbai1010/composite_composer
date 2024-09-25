@@ -18,22 +18,27 @@ constructor = "booter"
 [[components]]
 name = "sched"
 img  = "sched.pfprr_quantum_static"
-constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "4"}]
+constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "2"}]
 deps = [{srv = "capmgr", interface = "init"}, {srv = "capmgr", interface = "capmgr"}, {srv = "capmgr", interface = "memmgr"}]
 implements = [{interface = "sched"}, {interface = "init"}]
 constructor = "booter"
 
 [[components]]
 name = "clientcomp"
-constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "4"}]
+constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "2"}]
 img  = "tests.unit_static_thds"
 deps = [{srv = "sched", interface = "init"}, {srv = "sched", interface = "sched"}, {srv = "capmgr", interface = "capmgr_create"}]
 constructor = "booter"
+virt_res = [
+    {vr_type = "sched", instances = [
+        {static_hi = {access = ["write", "dynamic_alloc", "read", "blocking"], name = "name_static_hi"}}, 
+        {static_lo = {access = ["write", "dynamic_alloc", "read", "blocking"], name = "name_static_lo"}}]}
+]
 
 [[virt_resources]]
-name = "sched_init"
 server = "sched"
+vr_type = "sched"
 resources = [
-    {name = "static_hi", param = { core = "0", priority = "3" }, clients = [{comp = "clientcomp", access = "whatever1", name = "name_static_hi"}]},
-    {name = "static_lo", param = { core = "2", priority = "4" }, clients = [{comp = "clientcomp", access = "whatever3", name = "name_static_lo"}]}
+    {instance = "static_hi", param = {core = "0", priority = "3"}},
+    {instance = "static_lo", param = {core = "2", priority = "4"}}
 ]

@@ -12,6 +12,10 @@ name = "sched_thd_wakeup"
 access = ["write"]
 
 [[function]]
+name = "sched_thd_wakeup_static"
+access = ["write"]
+
+[[function]]
 name = "sched_debug_thd_state"
 access = ["read"]
 

@@ -216,9 +216,10 @@ sched_thd_wakeup_static(compid_t cid, unsigned int idx)
 	struct slm_thd *t = NULL;
 	
 	assert(idx > 0);
-	assert(idx < MAX_NUM_STATIC_THD_COMP);
+	assert(idx <= MAX_NUM_STATIC_THD_COMP);
 
 	// TODO: Is there any way to find callers compid?
+	printc("Waking up static thread %d in comp %d\n", idx, cid);
 	t = static_thds_arr[cid][--idx];
 	if (!t) {
 		return -1;
