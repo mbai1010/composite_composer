@@ -226,6 +226,8 @@ cos_thd_entry_exec(u32_t idx)
 	__thd_init_data[idx].data = NULL;
 	__thd_init_data[idx].fn   = NULL;
 
+	/* It is hard to trace the error if fn is NULL */
+	assert(fn != NULL);
 	(fn)(data);
 }
 
@@ -362,8 +364,9 @@ cos_upcall_fn(upcall_type_t t, void *arg1, void *arg2, void *arg3)
 		} else {
 			word_t idx = (word_t)arg1 - 1;
 			if (idx >= COS_THD_INIT_REGION_SIZE) {
-				/* This means static defined entry */
-				cos_thd_entry_static(idx - COS_THD_INIT_REGION_SIZE);
+				/* This means static defined entry 
+				 * idx should be the static thread id */
+				cos_thd_entry_static(idx + 1 - COS_THD_INIT_REGION_SIZE);
 			} else {
 				/* Execute dynamic allocated entry. */
 				cos_thd_entry_exec(idx);

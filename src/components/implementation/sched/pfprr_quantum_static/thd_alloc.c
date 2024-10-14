@@ -131,3 +131,54 @@ free:
 	ret = NULL;
 	goto done;
 }
+
+struct slm_thd *
+thd_alloc_in_static(compid_t id, thdclosure_index_t idx, sched_param_t *parameters)
+{
+	struct slm_thd_container *t;
+	struct slm_thd *ret     = NULL, *thd;
+	struct slm_thd *current = slm_thd_current_extern();
+	thdcap_t thdcap;
+	thdid_t tid;
+	int i;
+
+	/*
+	 * If this condition is true, we are likely in the
+	 * initialization sequence in the idle or scheduler threads...
+	 */
+	if (!current) {
+		current = slm_thd_special();
+		assert(current);
+	}
+
+	t = slm_thd_alloc_in(id, idx, &thdcap, &tid);
+	if (!t) ERR_THROW(NULL, done);
+	thd = slm_thd_from_container(t);
+
+	slm_cs_enter(current, SLM_CS_NONE);
+	if (slm_thd_init(thd, thdcap, tid)) ERR_THROW(NULL, free);
+
+	for (i = 0; parameters[i] != 0; i++) {
+		sched_param_type_t type;
+		unsigned int value;
+
+		sched_param_get(parameters[i], &type, &value);
+		if (slm_sched_thd_update(thd, type, value)) ERR_THROW(NULL, free);
+	}
+	slm_thd_mem_activate(t);
+
+	/*
+	 * Block the thread until the client triggers the scheduler.
+	 */
+	slm_thd_block(thd);
+
+	slm_cs_exit(NULL, SLM_CS_NONE);
+
+	ret = thd;
+done:
+	return ret;
+free:
+	slm_thd_mem_free(t);
+	ret = NULL;
+	goto done;
+}

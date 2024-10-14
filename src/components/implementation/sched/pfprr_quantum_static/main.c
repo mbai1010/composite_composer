@@ -208,6 +208,25 @@ sched_thd_wakeup(thdid_t tid)
 	return thd_wakeup(t);
 }
 
+extern struct slm_thd *static_thds_arr[MAX_NUM_COMPS][MAX_NUM_STATIC_THD_COMP];
+
+int
+sched_thd_wakeup_static(compid_t cid, unsigned int idx)
+{
+	struct slm_thd *t = NULL;
+	
+	assert(idx > 0);
+	assert(idx < MAX_NUM_STATIC_THD_COMP);
+
+	// TODO: Is there any way to find callers compid?
+	t = static_thds_arr[cid][--idx];
+	if (!t) {
+		return -1;
+	} 
+
+	return thd_wakeup(t);	
+}
+
 int
 sched_debug_thd_state(thdid_t tid)
 {
@@ -640,6 +659,8 @@ cos_parallel_init(coreid_t cid, int init_core, int ncores)
 	if (!r) BUG();
 	sched_thd_param_set(ipitid, sched_param_pack(SCHEDP_PRIO, SLM_IPI_THD_PRIO));
 	ck_ring_init(&ipi_data->ring, PAGE_SIZE / sizeof(struct slm_ipi_event));
+
+	// XXX: ESMA call it here?
 }
 
 void

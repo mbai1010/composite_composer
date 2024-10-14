@@ -1,0 +1,39 @@
+[system]
+description = "Simplest system with both capability manager and scheduler, from unit_schedcomp.sh"
+
+[[components]]
+name = "booter"
+img  = "no_interface.llbooter"
+implements = [{interface = "init"}, {interface = "addr"}]
+deps = [{srv = "kernel", interface = "init", variant = "kernel"}]
+constructor = "kernel"
+
+[[components]]
+name = "capmgr"
+img  = "capmgr.simple"
+deps = [{srv = "booter", interface = "init"}, {srv = "booter", interface = "addr"}]
+implements = [{interface = "capmgr"}, {interface = "init"}, {interface = "memmgr"}, {interface = "capmgr_create"}]
+constructor = "booter"
+
+[[components]]
+name = "sched"
+img  = "sched.pfprr_quantum_static"
+constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "4"}]
+deps = [{srv = "capmgr", interface = "init"}, {srv = "capmgr", interface = "capmgr"}, {srv = "capmgr", interface = "memmgr"}]
+implements = [{interface = "sched"}, {interface = "init"}]
+constructor = "booter"
+
+[[components]]
+name = "clientcomp"
+constants = [{variable = "MAX_NUM_STATIC_THD_COMP", value = "4"}]
+img  = "tests.unit_static_thds"
+deps = [{srv = "sched", interface = "init"}, {srv = "sched", interface = "sched"}, {srv = "capmgr", interface = "capmgr_create"}]
+constructor = "booter"
+
+[[virt_resources]]
+name = "sched_init"
+server = "sched"
+resources = [
+    {name = "static_hi", param = { core = "0", priority = "3" }, clients = [{comp = "clientcomp", access = "whatever1", name = "name_static_hi"}]},
+    {name = "static_lo", param = { core = "2", priority = "4" }, clients = [{comp = "clientcomp", access = "whatever3", name = "name_static_lo"}]}
+]
