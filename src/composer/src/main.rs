@@ -113,7 +113,7 @@ pub fn exec() -> Result<(), String> {
       6.insert stack size into header file
       6.TBD: get the analysis result of thread number
       7.insert the max_local_num_thread into header file*/ 
-    if is_rebuild {
+   // if is_rebuild {
         let booter_id = 1;
         for c_id in reverse_ids.iter() {
             let invocations_pass = sys.get_invs_id(&booter_id);
@@ -134,19 +134,32 @@ pub fn exec() -> Result<(), String> {
 
             let symbol_names_arg = symbol_names.join(",");
     
-            /* call your stack size analysis tool here get the result */
-            let output = Command::new("python3")
-            .arg("path/to/stack_size_analysis.py") // Replace with the actual path to your Python script
-            .arg(&symbol_names_arg)
-            .output()
-            .expect("Failed to execute Python script");
+            println!("symbol_names_arg for component {} at: {:?}", &c_id, &symbol_names_arg);
 
-            // Convert the output to a string and parse it
-            let stack_size = str::from_utf8(&output.stdout)
-                .expect("Failed to convert output to string")
-                .trim()
-                .to_string();
+            let mut stack_sizes = Vec::new();
+            let binary = build.comp_obj_path(&c_id, &sys)?;
+            /* call your stack size analysis tool here get the result */
+            for symbol_name in &symbol_names {
+                let output = Command::new("python3")
+                    .arg("path/to/stack_size_analysis.py") // Replace with the actual path to your Python script
+                    .arg(&binary)
+                    .arg(&symbol_name)
+                    .output()
+                    .expect("Failed to execute Python script");
+        
+                // Convert the output to a string and parse it as an integer
+                let stack_size: i32 = str::from_utf8(&output.stdout)
+                    .expect("Failed to convert output to string")
+                    .trim()
+                    .parse()
+                    .expect("Failed to parse stack size");
+        
+                // Save the stack size
+                stack_sizes.push(stack_size);
+            }
             
+            let max_stack_size = stack_sizes.iter().max().expect("No stack sizes found");
+
             println!("invs name for component {} at: {:?}", &c_id, &invs);
     
             println!("filtered_invs name for component {} at: {:?}",&c_id, &filtered_invs);
@@ -155,7 +168,7 @@ pub fn exec() -> Result<(), String> {
     
             let new_constant = ConstantVal {
                 variable: "COS_STACK_SZ".to_string(),
-                value: stack_size.to_string(),
+                value: max_stack_size.to_string(),
             };
     
             iner_constants.push(new_constant);
@@ -166,10 +179,10 @@ pub fn exec() -> Result<(), String> {
             build.comp_const_header_file(&header_file_path, Some(iner_constants), &c_id, &sys)?;
     
             /*rebuild this system */
-            build.set_rebuild_flag(is_rebuild);
-            sys.add_objs_iter(&c_id, ElfObject::transition_iter(c_id, &sys, &mut build)?);
+            //build.set_rebuild_flag(is_rebuild);
+           // sys.add_objs_iter(&c_id, ElfObject::transition_iter(c_id, &sys, &mut build)?);
         }
-    }
+   // }
 
     println!(
         "System object generated:\n\t{}",
