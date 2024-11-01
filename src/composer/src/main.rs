@@ -40,6 +40,8 @@ use tot_order::CompTotOrd;
 use virt_resources::VirtResAnalysis;
 use graph::Graph;
 use analysis::Analysis;
+use std::process::Command;
+use std::str;
 
 pub fn exec() -> Result<(), String> {
     let mut args = env::args();
@@ -111,48 +113,62 @@ pub fn exec() -> Result<(), String> {
       6.insert stack size into header file
       6.TBD: get the analysis result of thread number
       7.insert the max_local_num_thread into header file*/ 
-    let booter_id = 1;
-    for c_id in reverse_ids.iter() {
-        let invocations_pass = sys.get_invs_id(&booter_id);
-        let invs = invocations_pass.invocations();
-        let mut iner_constants = Vec::new();
+    if is_rebuild {
+        let booter_id = 1;
+        for c_id in reverse_ids.iter() {
+            let invocations_pass = sys.get_invs_id(&booter_id);
+            let invs = invocations_pass.invocations();
+            let mut iner_constants = Vec::new();
+    
+            let filtered_invs: Vec<&SInv> = invs
+            .iter()
+            .filter(|inv| inv.server == *c_id)
+            .collect();
+    
+            let mut symbol_names: Vec<String> = filtered_invs
+            .iter()
+            .map(|inv| format!("__cosrt_s_{}", inv.symb_name))
+            .collect();
+    
+            symbol_names.push("__cosrt_upcall_entry".to_string());
 
-        let filtered_invs: Vec<&SInv> = invs
-        .iter()
-        .filter(|inv| inv.server == *c_id)
-        .collect();
+            let symbol_names_arg = symbol_names.join(",");
+    
+            /* call your stack size analysis tool here get the result */
+            let output = Command::new("python3")
+            .arg("path/to/stack_size_analysis.py") // Replace with the actual path to your Python script
+            .arg(&symbol_names_arg)
+            .output()
+            .expect("Failed to execute Python script");
 
-        let mut symbol_names: Vec<String> = filtered_invs
-        .iter()
-        .map(|inv| format!("__cosrt_s_{}", inv.symb_name))
-        .collect();
-
-        symbol_names.push("__cosrt_upcall_entry".to_string());
-
-        /* call your stack size analysis tool here get the result */
-        let stack_size = "replace with your tool";
-
-        println!("invs name for component {} at: {:?}", &c_id, &invs);
-
-        println!("filtered_invs name for component {} at: {:?}",&c_id, &filtered_invs);
-
-        println!("symbol name for component {} at: {:?}",&c_id, &symbol_names);
-
-        let new_constant = ConstantVal {
-            variable: "COS_STACK_SZ".to_string(),
-            value: stack_size.to_string(),
-        };
-
-        iner_constants.push(new_constant);
-
-        let header_file_path =
-            build.comp_file_path(&c_id, &"component_constants.h".to_string(), &sys)?;
-
-        build.comp_const_header_file(&header_file_path, Some(iner_constants), &c_id, &sys)?;
-
-        /*rebuild this system */
-        build.set_rebuild_flag(is_rebuild);
-        sys.add_objs_iter(&c_id, ElfObject::transition_iter(c_id, &sys, &mut build)?);
+            // Convert the output to a string and parse it
+            let stack_size = str::from_utf8(&output.stdout)
+                .expect("Failed to convert output to string")
+                .trim()
+                .to_string();
+            
+            println!("invs name for component {} at: {:?}", &c_id, &invs);
+    
+            println!("filtered_invs name for component {} at: {:?}",&c_id, &filtered_invs);
+    
+            println!("symbol name for component {} at: {:?}",&c_id, &symbol_names);
+    
+            let new_constant = ConstantVal {
+                variable: "COS_STACK_SZ".to_string(),
+                value: stack_size.to_string(),
+            };
+    
+            iner_constants.push(new_constant);
+    
+            let header_file_path =
+                build.comp_file_path(&c_id, &"component_constants.h".to_string(), &sys)?;
+    
+            build.comp_const_header_file(&header_file_path, Some(iner_constants), &c_id, &sys)?;
+    
+            /*rebuild this system */
+            build.set_rebuild_flag(is_rebuild);
+            sys.add_objs_iter(&c_id, ElfObject::transition_iter(c_id, &sys, &mut build)?);
+        }
     }
 
     println!(
