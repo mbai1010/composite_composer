@@ -39,6 +39,11 @@
 #define MAX_LOCAL_NUM_THREADS (64 * NUM_CPU)
 #endif
 
+/* Maximum number of static threads per component */
+#ifndef MAX_NUM_STATIC_THD_COMP 
+#define MAX_NUM_STATIC_THD_COMP 0
+#endif
+
 /*
  * A single thread's stack size is 2^17 = 128kb by default
  */
